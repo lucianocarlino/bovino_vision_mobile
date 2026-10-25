@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../capture/presentation/screens/capture_screen.dart';
 import '../../../capture/presentation/screens/estimation_status_screen.dart';
+import '../../../capture/presentation/screens/session_completed_screen.dart';
+import '../../../rodeo/presentation/screens/rodeo_screen.dart';
 import '../../data/home_mock_data.dart';
 import '../providers/home_sync_provider.dart';
 import '../widgets/capture_cta_button.dart';
@@ -236,15 +238,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 RecentSessionsList(
                   sessions: recentSessions,
                   onSessionTap: (session) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            EstimationStatusScreen.fromSession(
-                          session: session,
+                    if (session.isPending) {
+                      // Sesión pendiente de subida: muestra estado de sincronización
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              EstimationStatusScreen.fromSession(
+                            session: session,
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    } else {
+                      // Sesión procesada y sincronizada: muestra resultados de estimación
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              SessionCompletedScreen.fromSession(
+                            session: session,
+                            isOffline: !isOnline,
+                          ),
+                        ),
+                      );
+                    }
                   },
                 ),
                 const SizedBox(height: 24),
@@ -255,10 +272,27 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentNavIndex,
-        onDestinationSelected: (index) {
+        onDestinationSelected: (index) async {
+          if (index == 1) {
+            // Enlazar la opción del menú inferior ("Rodeo") con el buscador de animales
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const RodeoScreen(),
+              ),
+            );
+            if (mounted) {
+              setState(() {
+                _currentNavIndex = 0;
+              });
+            }
+            return;
+          }
+
           setState(() {
             _currentNavIndex = index;
           });
+
           if (index != 0) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(

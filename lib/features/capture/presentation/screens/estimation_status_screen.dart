@@ -2,8 +2,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../home/data/home_mock_data.dart';
+import 'session_completed_screen.dart';
 
-/// Modelo de datos para cada paso individual en la sincronización e inferencia.
+/// Modelo de datos para cada paso individual en la sincronización.
 class EstimationStepModel {
   final String title;
   final String status; // 'completed', 'in_progress', 'pending'
@@ -28,15 +29,15 @@ class EstimationStepModel {
   bool get isPending => status == 'pending';
 }
 
-/// Modelo representativo del estado general de la sesión de estimación.
+/// Modelo representativo del estado general de la sesión de sincronización.
 class EstimationStatusData {
-  final String animalId;
+  final String? animalId;
   final double overallProgress;
   final List<EstimationStepModel> steps;
   final bool isPending;
 
   const EstimationStatusData({
-    required this.animalId,
+    this.animalId,
     required this.overallProgress,
     required this.steps,
     this.isPending = true,
@@ -46,7 +47,7 @@ class EstimationStatusData {
     final rawSteps = json['steps'] as List<dynamic>? ?? [];
     final progress = (json['overallProgress'] as num?)?.toDouble() ?? 0.0;
     return EstimationStatusData(
-      animalId: json['animalId'] as String? ?? '',
+      animalId: json['animalId'] as String?,
       overallProgress: progress,
       isPending: json['isPending'] as bool? ?? (progress < 1.0),
       steps: rawSteps
@@ -58,15 +59,10 @@ class EstimationStatusData {
   /// Genera los datos visuales correspondientes a una sesión seleccionada
   factory EstimationStatusData.fromSession(RecentSessionModel session) {
     if (session.isPending) {
-      return EstimationStatusData(
-        animalId: session.id.startsWith('AR-')
-            ? session.id
-            : (session.animalsProcessed == 1
-                ? 'AR-003421'
-                : 'AR-003421 (${session.animalsProcessed} en sesión)'),
+      return const EstimationStatusData(
         overallProgress: 0.45,
         isPending: true,
-        steps: const [
+        steps: [
           EstimationStepModel(
             title: 'Conexión al backend establecida',
             status: 'completed',
@@ -80,24 +76,13 @@ class EstimationStatusData {
             status: 'in_progress',
             detail: '45% completado (1.2 MB / 2.6 MB)',
           ),
-          EstimationStepModel(
-            title: 'Estimando peso (IA)',
-            status: 'pending',
-          ),
         ],
       );
     } else {
-      final animalTag = session.id == 's1'
-          ? 'AR-001012'
-          : (session.id == 's2' ? 'AR-002030' : 'AR-003421');
-
-      return EstimationStatusData(
-        animalId: session.id.startsWith('AR-')
-            ? session.id
-            : '$animalTag (${session.animalsProcessed} procesados)',
+      return const EstimationStatusData(
         overallProgress: 1.0,
         isPending: false,
-        steps: const [
+        steps: [
           EstimationStepModel(
             title: 'Conexión al backend establecida',
             status: 'completed',
@@ -111,11 +96,6 @@ class EstimationStatusData {
             status: 'completed',
             detail: '100% completado (2.6 MB / 2.6 MB)',
           ),
-          EstimationStepModel(
-            title: 'Estimación completada (IA)',
-            status: 'completed',
-            detail: 'Inferencia biométrica finalizada',
-          ),
         ],
       );
     }
@@ -123,7 +103,6 @@ class EstimationStatusData {
 
   /// Mock estático según especificaciones de negocio
   static const Map<String, dynamic> mockJson = {
-    "animalId": "AR-003421",
     "overallProgress": 0.45,
     "steps": [
       {"title": "Conexión al backend establecida", "status": "completed"},
@@ -132,8 +111,7 @@ class EstimationStatusData {
         "title": "Subiendo imagen (1/1)",
         "status": "in_progress",
         "detail": "45% completado (1.2 MB / 2.6 MB)"
-      },
-      {"title": "Estimando peso (IA)", "status": "pending"}
+      }
     ]
   };
 
@@ -141,7 +119,7 @@ class EstimationStatusData {
       EstimationStatusData.fromJson(mockJson);
 }
 
-/// Pantalla de estado de sincronización e inferencia para estimación bovina.
+/// Pantalla de estado de sincronización de la sesión.
 /// Proporciona retroalimentación visual del backend y refuerza la filosofía Offline-First.
 class EstimationStatusScreen extends StatefulWidget {
   final EstimationStatusData? initialData;
@@ -201,20 +179,19 @@ class _EstimationStatusScreenState extends State<EstimationStatusScreen>
     super.dispose();
   }
 
-  /// Despliega el SnackBar estricto para acciones no implementadas
-  void _showNotImplemented() {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Not implemented'),
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 2),
-      ),
-    );
+  /// Retorna a la pantalla de inicio al presionar la 'X'
+  void _handleClose() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isCompleted = _data.overallProgress >= 1.0;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: _buildAppBar(),
@@ -225,7 +202,7 @@ class _EstimationStatusScreenState extends State<EstimationStatusScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 1. Cabecera estética con difuminado, spinner/badge y datos del animal
+              // 1. Cabecera estética con difuminado, spinner/badge
               _buildHeader(),
               const SizedBox(height: 24),
 
@@ -240,6 +217,36 @@ class _EstimationStatusScreenState extends State<EstimationStatusScreen>
               // 4. Tarjeta informativa Offline-first
               _buildInfoCard(),
               const SizedBox(height: 16),
+
+              // 5. Botón para navegar a los resultados de la sesión si ya fue sincronizada y estimada
+              if (isCompleted) ...[
+                ElevatedButton.icon(
+                  onPressed: () {
+                    if (widget.session != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              SessionCompletedScreen.fromSession(
+                            session: widget.session!,
+                          ),
+                        ),
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const SessionCompletedScreen(),
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.analytics_outlined),
+                  label: const Text('VER RESULTADOS DE LA SESIÓN'),
+                ),
+                const SizedBox(height: 16),
+              ],
             ],
           ),
         ),
@@ -247,7 +254,7 @@ class _EstimationStatusScreenState extends State<EstimationStatusScreen>
     );
   }
 
-  /// Barra superior: botón de cerrar ('X') y título sin el indicador '4/4'
+  /// Barra superior: botón de cerrar ('X') que retorna al inicio y título
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: Colors.transparent,
@@ -268,7 +275,7 @@ class _EstimationStatusScreenState extends State<EstimationStatusScreen>
             size: 18,
           ),
         ),
-        onPressed: _showNotImplemented,
+        onPressed: _handleClose,
         tooltip: 'Cerrar',
       ),
       title: const Text(
@@ -372,9 +379,9 @@ class _EstimationStatusScreenState extends State<EstimationStatusScreen>
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
-                              Icons.psychology_rounded,
+                              Icons.cloud_upload_rounded,
                               color: AppColors.primary,
-                              size: 28,
+                              size: 26,
                             ),
                           ),
                         ],
@@ -384,40 +391,9 @@ class _EstimationStatusScreenState extends State<EstimationStatusScreen>
                 ),
               const SizedBox(height: 18),
 
-              // Chip de identificación del animal
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceMuted,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.tag_rounded,
-                      size: 13,
-                      color: AppColors.textSecondary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Caravana: ${_data.animalId}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-
               // Título principal
               Text(
-                isCompleted ? 'Estimación completada' : 'Estimando peso...',
+                isCompleted ? 'Sincronización completada' : 'Sincronizando sesión...',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: AppColors.textPrimary,
@@ -431,8 +407,8 @@ class _EstimationStatusScreenState extends State<EstimationStatusScreen>
               // Mensaje descriptivo
               Text(
                 isCompleted
-                    ? 'Inferencia y sincronización completadas con éxito.\nEl pesaje ha sido registrado en el rodeo.'
-                    : 'Identificando la caravana y evaluando la condición corporal.\nNo cierres la aplicación.',
+                    ? 'Imágenes y datos sincronizados con éxito.\nEl registro ha sido actualizado en el servidor.'
+                    : 'Subiendo capturas y datos al backend.\nNo cierres la aplicación.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: AppColors.textSecondary,
@@ -473,7 +449,7 @@ class _EstimationStatusScreenState extends State<EstimationStatusScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Progreso del análisis',
+                'Progreso de sincronización',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 14.5,

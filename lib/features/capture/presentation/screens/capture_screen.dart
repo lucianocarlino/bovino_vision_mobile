@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../home/presentation/providers/home_sync_provider.dart';
@@ -29,6 +31,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
   late CaptureScreenData _data;
   late final TextEditingController _animalIdController;
   late final String _sessionId;
+  final ImagePicker _imagePicker = ImagePicker();
+  String? _selectedImagePath;
 
   @override
   void initState() {
@@ -56,6 +60,65 @@ class _CaptureScreenState extends State<CaptureScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  /// Abre la galería nativa mediante image_picker para importar una fotografía,
+  /// actualiza la vista previa y añade la captura a la lista de la sesión.
+  Future<void> _handleImportFromGallery() async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+      );
+
+      // Manejo de cancelaciones: si el usuario regresa sin seleccionar una foto
+      if (pickedFile == null) {
+        return;
+      }
+
+      final currentId = _animalIdController.text.trim();
+      final effectiveId = currentId.isNotEmpty
+          ? currentId
+          : 'BOV-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+
+      if (_animalIdController.text.trim().isEmpty) {
+        _animalIdController.text = effectiveId;
+      }
+
+      final newItem = SessionGalleryItem(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        animalId: effectiveId,
+        imageThumbnail: pickedFile.path,
+        capturedAt: DateTime.now(),
+      );
+
+      setState(() {
+        _selectedImagePath = pickedFile.path;
+        _data = _data.copyWith(
+          currentAnimalId: effectiveId,
+          sessionGallery: [..._data.sessionGallery, newItem],
+        );
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Imagen importada exitosamente para el animal $effectiveId.'),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al importar imagen: $e'),
+          backgroundColor: AppColors.offline,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   /// Lógica de disparo del obturador con validación de regla de negocio:
@@ -102,6 +165,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
     );
 
     setState(() {
+      _selectedImagePath = 'assets/mock_cow.jpg';
       _data = _data.copyWith(
         currentAnimalId: currentId,
         sessionGallery: [..._data.sessionGallery, newItem],
@@ -113,19 +177,6 @@ class _CaptureScreenState extends State<CaptureScreen> {
       SnackBar(
         content: Text('Captura registrada exitosamente para el animal $currentId.'),
         backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  /// Feedback informativo al pulsar sobre el indicador offline
-  void _handleOfflineIndicatorPressed() {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${_data.pendingSyncCount} pesajes guardados localmente pendientes de sincronización.',
-        ),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -240,6 +291,116 @@ class _CaptureScreenState extends State<CaptureScreen> {
     }
   }
 
+  /// Construye el visor visual: si hay una foto seleccionada o capturada,
+  /// la muestra manteniendo las proporciones y estilos visuales del visor de cámara.
+  Widget _buildCameraViewport() {
+    if (_selectedImagePath != null) {
+      final isAsset = _selectedImagePath!.startsWith('assets/');
+
+      return AspectRatio(
+        aspectRatio: 4 / 3,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF101411),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.4),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (isAsset)
+                  Image.asset(
+                    _selectedImagePath!,
+                    fit: BoxFit.cover,
+                  )
+                else
+                  Image.file(
+                    File(_selectedImagePath!),
+                    fit: BoxFit.cover,
+                  ),
+
+                // Indicador sutil de imagen seleccionada
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.photo_library_rounded,
+                          color: AppColors.primaryLight,
+                          size: 14,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Imagen de sesión',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Botón para cerrar la vista previa y regresar al visor en vivo
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Material(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () {
+                        setState(() {
+                          _selectedImagePath = null;
+                        });
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.all(6),
+                        child: Icon(
+                          Icons.close_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return const CameraPreviewViewport();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -281,25 +442,23 @@ class _CaptureScreenState extends State<CaptureScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 1. Identificación del animal editable y Chip Offline
+              // 1. Identificación del animal editable
               AnimalIdentificationHeader(
                 controller: _animalIdController,
-                pendingSyncCount: _data.pendingSyncCount,
                 onChanged: (val) {
                   _data = _data.copyWith(currentAnimalId: val);
                 },
-                onSyncInfoPressed: _handleOfflineIndicatorPressed,
               ),
               const SizedBox(height: 16),
 
-              // 2. Visor estético de la cámara
-              const CameraPreviewViewport(),
+              // 2. Visor estético de la cámara o imagen seleccionada
+              _buildCameraViewport(),
               const SizedBox(height: 16),
 
               // 3. Controles de captura (Galería, Obturador y Alternar Cámara)
               CameraShutterControls(
                 onCapturePressed: _handleShutterCapture,
-                onGalleryPressed: _showNotImplementedSnackBar,
+                onGalleryPressed: _handleImportFromGallery,
                 onSecondaryControlPressed: _showNotImplementedSnackBar,
               ),
               const SizedBox(height: 16),
@@ -307,7 +466,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
               // 4. Galería de sesión con ListView horizontal desplazable
               SessionGalleryBar(
                 items: _data.sessionGallery,
-                onItemPressed: (_) => _showNotImplementedSnackBar(),
+                onItemPressed: (item) {
+                  setState(() {
+                    _selectedImagePath = item.imageThumbnail;
+                  });
+                },
               ),
               const SizedBox(height: 20),
 

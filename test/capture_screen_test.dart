@@ -41,9 +41,9 @@ void main() {
       expect(find.byIcon(Icons.qr_code_scanner_rounded), findsNothing);
       expect(find.byTooltip('Escanear identificación'), findsNothing);
 
-      // Verifica chip offline "3 en cola"
-      expect(find.text('3 en cola'), findsOneWidget);
-      expect(find.byIcon(Icons.cloud_off_rounded), findsOneWidget);
+      // Verifica que el chip offline "3 en cola" fue eliminado de esta pantalla
+      expect(find.text('3 en cola'), findsNothing);
+      expect(find.byIcon(Icons.cloud_off_rounded), findsNothing);
 
       // Verifica que no existan códigos técnicos en la interfaz
       expect(find.textContaining('RF-'), findsNothing);

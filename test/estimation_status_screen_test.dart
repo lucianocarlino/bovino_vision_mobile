@@ -5,7 +5,7 @@ import 'package:bovino_vision_mobile/features/home/data/home_mock_data.dart';
 import 'package:bovino_vision_mobile/features/home/presentation/widgets/recent_sessions_list.dart';
 
 void main() {
-  testWidgets('EstimationStatusScreen renders default mock correctly', (tester) async {
+  testWidgets('EstimationStatusScreen renders default mock correctly and omits caravana box and estimar peso step', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: EstimationStatusScreen(),
@@ -16,21 +16,23 @@ void main() {
     expect(find.text('Captura de ganado'), findsOneWidget);
     expect(find.textContaining('4/4'), findsNothing);
 
-    // Verify Animal ID and headline
-    expect(find.textContaining('AR-003421'), findsOneWidget);
-    expect(find.text('Estimando peso...'), findsOneWidget);
+    // Verify Caravana box is removed
+    expect(find.textContaining('Caravana:'), findsNothing);
+
+    // Verify Headline
+    expect(find.text('Sincronizando sesión...'), findsOneWidget);
     expect(find.textContaining('No cierres la aplicación'), findsOneWidget);
 
     // Verify Progress percentage
-    expect(find.text('Progreso del análisis'), findsOneWidget);
+    expect(find.text('Progreso de sincronización'), findsOneWidget);
     expect(find.text('45%'), findsOneWidget);
 
-    // Verify 4 synchronization steps
+    // Verify 3 synchronization steps (omitting estimar peso)
     expect(find.text('Conexión al backend establecida'), findsOneWidget);
     expect(find.text('Prioridad asignada en cola'), findsOneWidget);
     expect(find.text('Subiendo imagen (1/1)'), findsOneWidget);
     expect(find.text('45% completado (1.2 MB / 2.6 MB)'), findsOneWidget);
-    expect(find.text('Estimando peso (IA)'), findsOneWidget);
+    expect(find.text('Estimando peso (IA)'), findsNothing);
 
     // Verify offline-first info card
     expect(find.text('Podés seguir capturando'), findsOneWidget);
@@ -38,14 +40,47 @@ void main() {
       find.textContaining('Si perdés señal, la estimación queda en cola y se envía sola cuando vuelva la conexión.'),
       findsOneWidget,
     );
+  });
 
-    // Verify Close button shows "Not implemented" SnackBar
+  testWidgets('Al tocar la X retorna a la pantalla anterior', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const EstimationStatusScreen(),
+                    ),
+                  );
+                },
+                child: const Text('Abrir'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Open EstimationStatusScreen
+    await tester.tap(find.text('Abrir'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Captura de ganado'), findsOneWidget);
+
+    // Tap Close 'X' button
     final closeButton = find.byTooltip('Cerrar');
     expect(closeButton, findsOneWidget);
     await tester.tap(closeButton);
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
 
-    expect(find.text('Not implemented'), findsOneWidget);
+    // Verify we returned to the previous screen and EstimationStatusScreen is gone
+    expect(find.text('Abrir'), findsOneWidget);
+    expect(find.text('Captura de ganado'), findsNothing);
   });
 
   testWidgets('Al tocar una sesión pendiente navega a EstimationStatusScreen con estado en progreso', (tester) async {
@@ -76,10 +111,11 @@ void main() {
 
     // Should be on EstimationStatusScreen
     expect(find.text('Captura de ganado'), findsOneWidget);
-    expect(find.text('Estimando peso...'), findsOneWidget);
-    expect(find.text('Caravana: AR-003421'), findsOneWidget);
+    expect(find.text('Sincronizando sesión...'), findsOneWidget);
+    expect(find.textContaining('Caravana:'), findsNothing);
     expect(find.text('45%'), findsOneWidget);
     expect(find.text('Subiendo imagen (1/1)'), findsOneWidget);
+    expect(find.text('Estimando peso (IA)'), findsNothing);
     expect(find.text('Podés seguir capturando'), findsOneWidget);
   });
 
@@ -111,10 +147,11 @@ void main() {
 
     // Should be on EstimationStatusScreen with completed status
     expect(find.text('Captura de ganado'), findsOneWidget);
-    expect(find.text('Estimación completada'), findsOneWidget);
-    expect(find.textContaining('AR-001012'), findsOneWidget);
+    expect(find.text('Sincronización completada'), findsOneWidget);
+    expect(find.textContaining('Caravana:'), findsNothing);
     expect(find.text('100%'), findsOneWidget);
     expect(find.text('Imagen subida (1/1)'), findsOneWidget);
+    expect(find.text('Estimando peso (IA)'), findsNothing);
     expect(find.text('Sesión sincronizada con éxito'), findsOneWidget);
   });
 }

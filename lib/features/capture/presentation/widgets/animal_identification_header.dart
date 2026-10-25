@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 
-/// Barra de encabezado para identificación del animal en captura y estado de cola offline.
+/// Barra de encabezado para identificación del animal en captura.
 /// Permite modificar directamente la caravana/identificador mediante un campo de texto editable.
 class AnimalIdentificationHeader extends StatelessWidget {
   final TextEditingController controller;
-  final int pendingSyncCount;
+  final int? pendingSyncCount;
   final ValueChanged<String>? onChanged;
   final VoidCallback? onSyncInfoPressed;
 
   const AnimalIdentificationHeader({
     super.key,
     required this.controller,
-    required this.pendingSyncCount,
+    this.pendingSyncCount,
     this.onChanged,
     this.onSyncInfoPressed,
   });
@@ -50,7 +50,7 @@ class AnimalIdentificationHeader extends StatelessWidget {
           ),
           const SizedBox(width: 12),
 
-          // Campo de texto editable para identificación con placeholder no válido
+          // Campo de texto editable para identificación con placeholder de ejemplo
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,44 +87,6 @@ class AnimalIdentificationHeader extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-
-          const SizedBox(width: 8),
-
-          // Chip Offline "3 en cola"
-          InkWell(
-            onTap: onSyncInfoPressed,
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.offlineLight,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: AppColors.offline.withValues(alpha: 0.4),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.cloud_off_rounded,
-                    size: 14,
-                    color: AppColors.offline,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    '$pendingSyncCount en cola',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.offline,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ],

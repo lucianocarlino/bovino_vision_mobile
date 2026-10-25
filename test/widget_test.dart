@@ -29,11 +29,26 @@ void main() {
     await tester.pumpWidget(const BovinoVisionApp());
     await tester.pumpAndSettle();
 
-    // Tap on second navigation destination (index 1)
-    await tester.tap(find.byType(NavigationDestination).at(1));
+    // Tap on third navigation destination (index 2 - Usuarios no implementado)
+    await tester.tap(find.byType(NavigationDestination).at(2));
     await tester.pumpAndSettle();
 
     expect(find.text('Not implemented'), findsOneWidget);
+  });
+
+  testWidgets('Al pulsar la pestaña Rodeo en el menú inferior navega al buscador de animales', (WidgetTester tester) async {
+    await tester.pumpWidget(const BovinoVisionApp());
+    await tester.pumpAndSettle();
+
+    // Pulsa la segunda opción del menú inferior (index 1: Rodeo / Buscador de animales)
+    await tester.tap(find.byType(NavigationDestination).at(1));
+    await tester.pumpAndSettle();
+
+    // Verifica que se encuentre en RodeoScreen y muestre el buscador de animales
+    expect(find.text('Rodeo'), findsWidgets);
+    expect(find.text('Buscar por ID SENASA o lote...'), findsOneWidget);
+    expect(find.text('AR-339281-C'), findsOneWidget);
+    expect(find.text('AR-440192-K'), findsOneWidget);
   });
 
   testWidgets('Al pulsar INICIAR CAPTURA navega hacia CaptureScreen sin referencias tecnicas RF', (WidgetTester tester) async {
@@ -57,7 +72,7 @@ void main() {
     expect(find.text('Captura Biométrica'), findsOneWidget);
     expect(find.text('Ej: AR-003421'), findsOneWidget);
     expect(find.text('0 tomas'), findsOneWidget);
-    expect(find.text('3 en cola'), findsOneWidget);
+    expect(find.text('3 en cola'), findsNothing);
     expect(find.textContaining('RF'), findsNothing);
   });
 

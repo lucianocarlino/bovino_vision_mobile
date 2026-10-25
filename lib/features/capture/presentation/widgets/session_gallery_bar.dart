@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/models/session_gallery_item.dart';
@@ -40,14 +41,14 @@ class SessionGalleryBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
-                children: [
-                  const Icon(
+                children: const [
+                  Icon(
                     Icons.collections_bookmark_rounded,
                     color: AppColors.primary,
                     size: 18,
                   ),
-                  const SizedBox(width: 8),
-                  const Text(
+                  SizedBox(width: 8),
+                  Text(
                     'Galería de sesión',
                     style: TextStyle(
                       fontSize: 14,
@@ -122,8 +123,32 @@ class _GalleryThumbnailItem extends StatelessWidget {
     required this.onTap,
   });
 
+  Widget _buildPlaceholder() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF263228),
+            Color(0xFF161F18),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.pets_rounded,
+          color: Colors.white60,
+          size: 26,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isAsset = item.imageThumbnail.startsWith('assets/');
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -150,32 +175,19 @@ class _GalleryThumbnailItem extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Intento de cargar la imagen con fallback seguro a placeholder estético
-              Image.asset(
-                item.imageThumbnail,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFF263228),
-                          const Color(0xFF161F18),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.pets_rounded,
-                        color: Colors.white60,
-                        size: 26,
-                      ),
-                    ),
-                  );
-                },
-              ),
+              // Intento de cargar la imagen (Asset o File local) con fallback seguro a placeholder estético
+              if (isAsset)
+                Image.asset(
+                  item.imageThumbnail,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                )
+              else
+                Image.file(
+                  File(item.imageThumbnail),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                ),
 
               // Overlay con gradiente inferior para legibilidad del ID
               Positioned(
