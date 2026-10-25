@@ -1,0 +1,115 @@
+# ==============================================================================
+# BovinoVision — Mobile (.gitignore)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Compilación y Caché de Flutter / Dart
+# ------------------------------------------------------------------------------
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+/coverage/
+**/doc/api/
+.packages
+
+# Símbolos y mapas de ofuscación para builds de release
+app.*.symbols
+app.*.map.json
+**/build/**
+
+# Previsualización de widgets y perfiles
+.widget_preview/
+
+# ------------------------------------------------------------------------------
+# 2. Persistencia Local y Artefactos de Campo (SQLite y Multimedia)
+# Evita subir bases locales SQLite de desarrollo, logs y fotos de prueba en campo
+# ------------------------------------------------------------------------------
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+# Directorios temporales de capturas de cámara / imágenes de prueba locales
+/temp_captures/
+/mock_captures/
+*.log
+
+# ------------------------------------------------------------------------------
+# 3. Variables de Entorno y Configuración Sensible
+# ------------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# ------------------------------------------------------------------------------
+# 4. Plataforma Android
+# ------------------------------------------------------------------------------
+**/android/.gradle
+**/android/captures/
+**/android/gradleBuild/
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+
+# Llaves de firma digital de APK/AAB y credenciales (Seguridad / CI-CD)
+*.keystore
+*.jks
+**/android/key.properties
+**/android/local.properties
+
+# ------------------------------------------------------------------------------
+# 5. Plataforma iOS
+# ------------------------------------------------------------------------------
+**/ios/.generated/
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/ephemeral/
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/profile
+**/ios/debug
+**/ios/DerivedData/
+
+# ------------------------------------------------------------------------------
+# 6. Entornos de Desarrollo (IDEs y Editores)
+# ------------------------------------------------------------------------------
+# Android Studio / IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# ------------------------------------------------------------------------------
+# 7. Archivos del Sistema Operativo
+# ------------------------------------------------------------------------------
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
