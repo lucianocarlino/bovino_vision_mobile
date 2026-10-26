@@ -76,6 +76,14 @@ flutter run
 flutter run --dart-define=API_URL=http://<IP_DE_TU_PC>:8000
 ```
 
+Para no escribir la URL en cada corrida, copiá `.env.example` a `.env` (ignorado por git), poné la IP de tu PC (`ipconfig`, "Dirección IPv4") y corré:
+
+```bash
+flutter run --dart-define-from-file=.env
+```
+
+Flutter no lee el `.env` por su cuenta: sin el flag la app usa `http://10.0.2.2:8000`. El valor queda compilado en la app, así que después de cambiarlo hay que volver a correr `flutter run` (el hot reload no alcanza). Si el celular no conecta, abrí `http://<IP_DE_TU_PC>:8000/health` en su navegador; si tampoco carga, revisá que el firewall de Windows permita el puerto 8000 y que ambos estén en la misma red.
+
 | Dónde corre la app | `API_URL` |
 | :--- | :--- |
 | Emulador Android | `http://10.0.2.2:8000` (por defecto) |
