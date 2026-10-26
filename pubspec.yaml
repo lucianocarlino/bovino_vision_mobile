@@ -1,5 +1,5 @@
 name: bovino_vision_mobile
-description: "MVP BovinoVision - Aplicación móvil offline-first para captura y pesaje bovino."
+description: "BovinoVision - Aplicación móvil para captura y pesaje bovino conectada a la API de BovinoVision."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -9,6 +9,9 @@ environment:
 
 dependencies:
   flutter:
+    sdk: flutter
+  # Spanish texts for Material widgets such as the date picker
+  flutter_localizations:
     sdk: flutter
 
   # UI e Íconos
@@ -20,20 +23,18 @@ dependencies:
   # Gestión de Estado
   provider: ^6.1.2
 
-  # Persistencia Local (SQLite Offline-first)
-  sqflite: ^2.3.3+1
+  # Persistencia de la sesión en el almacenamiento privado de la app
   path_provider: ^2.1.3
-  path: ^1.9.0
 
   # Conectividad y Red
   connectivity_plus: ^6.0.3
+  http: ^1.6.0
 
-  # Hardware de Captura
-  camera: ^0.11.0+1
+  # Captura de fotos (cámara del sistema y galería)
+  image_picker: ^1.2.4
 
   # Utilidades
-  intl: ^0.19.0
-  image_picker: ^1.2.4
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
@@ -42,3 +43,20 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/images/
+
+  fonts:
+    - family: Montserrat
+      fonts:
+        - asset: assets/fonts/Montserrat-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Montserrat-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Montserrat-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Montserrat-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Montserrat-ExtraBold.ttf
+          weight: 800
