@@ -1,204 +1,97 @@
 # BovinoVision — Mobile
 
-Aplicación móvil del sistema BovinoVision (captura fotográfica, estimación de peso bovino por visión artificial y trazabilidad offline-first), construida con **Flutter + Dart**.
+Aplicación móvil del sistema BovinoVision para el operario de campo: captura fotográfica, estimación de peso y consulta del rodeo. Está construida con **Flutter + Dart** y consume la API .NET de [`bovino_vision_backend`](../bovino_vision_backend).
 
-Este componente está diseñado específicamente para operarios y veterinarios en entornos rurales con conectividad nula o intermitente, permitiendo registrar sesiones de pesaje biométrico en campo y encolar las transacciones para su sincronización automática con el backend.
+El diseño copia la vista de celular de la web ([`bovino_vision_frontend`](../bovino_vision_frontend)). Usa los mismos tokens de color (verde para acciones y marca, marrón para el contexto del animal, fondo crema, sombras tintadas en verde), la tipografía Montserrat y los mismos componentes (tiles KPI, tarjetas, chips y asistente por pasos). La navegación es una barra inferior filtrada por los permisos del rol.
+
+---
+
+## Pantallas
+
+| Sección | Ruta | Permiso | Qué hace |
+| :--- | :--- | :--- | :--- |
+| Login | `/login` | — | `POST /auth/sesion`; la sesión se recuerda hasta `expira_en` |
+| Captura | `/captura`, `/captura/nueva` | `capturas_registrar` | Inicio con sesiones recientes y asistente de 4 pasos: animal, foto, estimación y resultado |
+| Rodeo | `/animales`, `/animales/nuevo`, `/animales/:id` | `rodeo_consultar` | Listado con KPIs y filtros, alta de animal y ficha con pesajes, alertas y lotes |
+| Lotes | `/lotes` | `rodeo_consultar` | Listado y alta de lotes (el alta requiere `rodeo_gestionar`) |
+| Panel | `/panel` | `analitica_consultar` | KPIs, evolución de peso, alertas críticas, composición y reporte por período |
+| Alertas | `/alertas` | `analitica_consultar` | Alertas activas; resolverlas requiere `rodeo_gestionar` |
+
+El rol **Operario de Campo** ve Captura, Rodeo y Lotes. Usuarios y roles se administran desde la web.
+
+**Sin conexión:** la app es *online*. Sin red o sin backend muestra "Sin conexión" y no permite capturar. La cola offline queda pendiente hasta que el backend acepte ids generados por el cliente, porque sin eso un reintento puede duplicar el pesaje.
 
 ---
 
 ## Arquitectura
 
-El código fuente reside en `lib/`, estructurado bajo el patrón **Feature-First** combinado con principios de **Clean Architecture** para desacoplar presentación, lógica y persistencia local:
-
 ```text
 lib/
-├── core/                           # Fundamentos transversales de la aplicación
-│   ├── database/                   # Persistencia local relacional (SQLite / sqflite)
-│   │   ├── app_database.dart       # Singleton gestor de conexión y ciclo de vida de la BD
-│   │   └── database_tables.dart    # Definición formal de esquemas DDL y llaves foráneas
-│   ├── router/                     # Enrutamiento declarativo centralizado (GoRouter)
-│   │   └── app_router.dart         # Definición de rutas (/ , /capture, /traceability, /sync)
-│   └── theme/                      # Sistema de diseño y ergonomía visual para campo
-│       ├── app_colors.dart         # Paleta de alto contraste para visibilidad bajo luz solar
-│       └── app_theme.dart          # Configuración Material 3 (tipografía, tarjetas, botones)
-├── features/                       # Módulos funcionales del sistema
-│   └── home/                       # Dashboard principal del operario de campo
-│       ├── data/                   # DTOs y modelos de datos
-│       │   └── home_mock_data.dart # Modelos de usuario, métricas, estado de red y sesiones
-│       └── presentation/           # Capa visual (UI)
-│           ├── screens/            # Vistas principales (HomeScreen)
-│           └── widgets/            # Componentes modulares reutilizables:
-│               ├── capture_cta_button.dart   # Botón primario de disparo de sesión
-│               ├── home_header.dart          # Perfil de usuario y estado de conexión
-│               ├── metrics_grid.dart         # KPIs del rodeo (total, lotes, pesajes)
-│               ├── recent_sessions_list.dart # Registro histórico de sesiones del día
-│               └── sync_status_card.dart     # Monitor visual de cola SQLite/servidor
-└── main.dart                       # Punto de entrada (configuración de bindings, orientación y tema)
+├── core/
+│   ├── api/          # ApiClient (http + cookie de sesión), ApiException, ApiConfig (API_URL)
+│   ├── auth/         # Session, SessionStore (archivo privado de la app), AuthController
+│   ├── data/         # HerdApi y modelos compartidos: Animal, Lot, Breed, Alert
+│   ├── format/       # Formatos argentinos (port de src/lib/formato.ts)
+│   ├── network/      # ConnectivityService (interfaz de red + GET /health)
+│   ├── router/       # go_router con redirecciones por sesión/permisos y AppShell
+│   ├── theme/        # Tokens del design system y ThemeData
+│   └── widgets/      # Botón, tarjeta, KPI, badge, avisos, gráfico de líneas, imagen de la API
+├── features/
+│   ├── auth/         # Login, splash y "sin acceso"
+│   ├── capture/      # Inicio de captura y asistente
+│   ├── rodeo/        # Listado, alta y ficha del animal
+│   ├── lots/         # Lotes
+│   ├── panel/        # Panel del rodeo
+│   └── alerts/       # Alertas del rodeo
+└── main.dart         # Inyección de dependencias (Provider) y MaterialApp.router
 ```
 
-### Decisiones de Arquitectura e Ingeniería
+### Decisiones
 
-- **Offline-First Nativo:** La app no asume conectividad a Internet. Las operaciones se asientan primero en la base SQLite local (`bovino_vision_local.db`) y se encolan en la tabla `sync_queue` con patrón transaccional para resolverse asíncronamente cuando se detecte red.
-- **Persistencia Relacional Local:** Se utiliza `sqflite` con llaves foráneas activadas (`PRAGMA foreign_keys = ON`) y cascada referencial para garantizar la integridad de datos entre `lotes`, `animals` y `captures`.
-- **Enrutamiento Declarativo:** Implementado con `go_router`, facilitando el paso de parámetros fuertemente tipados, redirecciones por estado de sincronización y navegación desacoplada del `BuildContext`.
-- **Diseño Ergonómico Rural:** Paleta cromática con alto contraste lumínico, fuentes legibles en exteriores y tarjetas con jerarquía clara para uso con una sola mano en manga o corral.
-
----
-
-## Estado Actual del MVP
-
-En esta etapa del proyecto se encuentran implementados:
-
-- **Dashboard Principal de Campo:** Monitoreo en tiempo real de métricas del rodeo (total de animales, lotes activos y capturas del día).
-- **Control de Conectividad y Sincronización:** Tarjeta de diagnóstico de estado de red (`Online` / `Offline`) y feedback visual del estado de sincronización local.
-- **Historial de Sesiones Recientes:** Listado de sesiones de pesaje y sanidad con cantidad de animales procesados y marcas temporales.
-- **Esquema de Base de Datos Local SQLite:** DDL de 4 tablas relacionales (`lotes`, `animals`, `captures`, `sync_queue`) preparadas para el almacenamiento en dispositivo.
-- **Navegación Base:** Estructura de barra de navegación inferior (`NavigationBar` Material 3) para transicionar entre Inicio, Captura Móvil, Trazabilidad y Sincronización.
-
-*Próximos incrementos planificados:* Integración directa con el sensor de cámara (`camera` package) con guía de encuadre perimetral, consumo de la API REST del backend (`POST /capturas`, `POST /pesajes`) y worker de sincronización en segundo plano.
+- **Sesión por cookie reenviada a mano:** el backend autentica solo con la cookie `HttpOnly` `bovinovision_sesion` (no hay JWT ni bearer). Un cliente que no es navegador no tiene un almacén de cookies, así que `ApiClient` toma el token del `Set-Cookie` del login y lo envía en el header `Cookie`. El backend no exige CSRF ni chequea `Origin`, así que esto funciona igual que en la web. El token y la última sesión se guardan en el directorio de soporte privado de la app (`session.json`). Si la app abre sin red, confía en esa sesión hasta su vencimiento.
+- **401 en cualquier pedido** (sesión vencida o revocada): se borra la sesión local y se vuelve al login con el aviso "Tu sesión terminó".
+- **Errores:** las respuestas ProblemDetails se muestran con su `detail`; un fallo de red muestra "No se pudo conectar con el servidor. Revisá tu conexión.".
+- **Fotos:** se toman con la cámara del sistema o la galería (`image_picker`) y se reducen a 1600 px y calidad JPEG 85, igual que la web. Se suben en multipart con el content type explícito, porque el backend lo valida. Las fotos guardadas se cargan desde `GET /imagenes/{id}` con la cookie de sesión.
+- **Sin dependencias de UI externas:** Montserrat va como asset (`assets/fonts`, licencia OFL) y el gráfico está dibujado con `CustomPaint`.
 
 ---
 
 ## Requisitos
 
-Para compilar y ejecutar la aplicación móvil se requiere:
+- Flutter `3.47.x` / Dart `3.13.x`.
+- Android SDK (API 34+ recomendada), JDK 21 configurado en Flutter (`flutter config --jdk-dir`).
+- Backend corriendo (ver el README de `bovino_vision_backend`): `docker compose up -d db` y `dotnet run --project src/BovinoVision.Api`. Escucha en el puerto `8000` y sus rutas no llevan prefijo `/api`. La semilla no crea un operario: creá uno desde la web con un administrador.
 
-- **Flutter SDK:** versión `3.16+` (verificado con Flutter `3.47.x` y Dart `3.13.x`).
-- **Android Studio / VS Code** con los plugins oficiales de **Flutter** y **Dart** instalados.
-- **Android SDK & Build-Tools** configurados (API 34+ recomendada).
-- **Emulador Android** (AVD con imagen x86_64 o ARM64) o **Dispositivo físico Android** con modo depuración USB activado (ideal para validar rendimiento de interfaz y acceso a cámara).
-- *(Opcional)* Backend de BovinoVision corriendo en `http://localhost:8000` si se desea validar interacción end-to-end.
-
----
-
-## Cómo correrlo localmente
-
-### 1. Verificar el entorno de desarrollo
-
-Asegurate de que las herramientas de Flutter y la cadena de herramientas de Android estén en orden:
-
-```bash
-flutter doctor
-```
-
-### 2. Instalar dependencias
-
-Desde la raíz de este repositorio (`bovino_vision_mobile`):
+## Cómo correrlo
 
 ```bash
 flutter pub get
-```
 
-### 3. Identificar dispositivos o emuladores disponibles
-
-Listá los dispositivos activos o emuladores configurados en tu máquina:
-
-```bash
-flutter devices
-```
-
-Si necesitás iniciar un emulador desde la línea de comandos:
-
-```bash
-flutter emulators
-flutter emulators --launch <nombre_del_emulador>
-```
-
-### 4. Ejecutar la aplicación
-
-Lanzá la app en el dispositivo o emulador deseado:
-
-```bash
-# Ejecutar en el dispositivo por defecto
+# Emulador Android: 10.0.2.2 es el host de la PC (valor por defecto)
 flutter run
 
-# O especificar un target explícito (ej. emulador Android)
-flutter run -d emulator-5554
-
-# O ejecutar en modo Windows Desktop para desarrollo rápido de UI
-flutter run -d windows
+# Celular físico en la misma red Wi-Fi: el backend debe escuchar en todas las interfaces
+#   dotnet run --project src/BovinoVision.Api --urls http://0.0.0.0:8000
+flutter run --dart-define=API_URL=http://<IP_DE_TU_PC>:8000
 ```
 
-### Atajos útiles en la consola durante la ejecución:
-- `r` — **Hot Reload** (recarga cambios en widgets en milisegundos sin perder estado).
-- `R` — **Hot Restart** (reinicia la aplicación y resetea el estado en memoria).
-- `p` — Alterna la visualización de guías de diseño (*debug painting*).
-- `q` — Detiene la ejecución.
-
----
-
-## Guía de Prueba para Evaluación (Testing Funcional)
-
-Para que estudiantes o evaluadores de la carrera de Ingeniería en Sistemas puedan validar el comportamiento del sistema desarrollado:
-
-1. **Inspección del Dashboard Principal:**
-   - Observá la barra superior con el identificador del sistema y el botón de notificaciones que reporta el estado del motor SQLite local.
-   - Verificá la tarjeta de usuario (`Francisco López`) con el avatar de iniciales (`FL`) y el badge verde de conectividad activa.
-2. **Diagnóstico de Sincronización Offline:**
-   - Hacé tap sobre el botón de sincronización dentro del banner verde (`Sincronización completa`).
-   - Se disparará un `SnackBar` contextual que valida la integridad de la base local y notifica si hay transacciones pendientes en la cola.
-3. **Métricas de Rodeo (KPIs):**
-   - Verificá el grid de 3 métricas consolidadas: *Total Rodeo (1248)*, *Lotes Activos (6)* y *Capturas Hoy (42)*.
-4. **Acción Primaria de Captura:**
-   - Presioná el botón flotante/destacado **INICIAR CAPTURA**. Comprobá la respuesta visual y la validación de permisos de sesión de pesaje.
-5. **Historial de Sesiones:**
-   - Hacé tap en cualquiera de las tarjetas de sesiones recientes (*Lote Norte - Pesaje* o *Corral Central - Sanidad*). Se desplegará el detalle del lote y los animales procesados.
-6. **Pull-to-Refresh:**
-   - Deslizá la pantalla hacia abajo para ejecutar el gesto de actualización; el indicador recargará el estado y refrescará los indicadores en memoria.
-7. **Navegación Inferior:**
-   - Navegá entre las pestañas `Inicio`, `Captura`, `Trazabilidad` y `Sincronización` para observar el ruteo declarativo (`go_router`) y la delimitación modular de las próximas etapas.
-
----
-
-## Persistencia Local y Esquema Relacional (SQLite)
-
-La arquitectura offline-first se fundamenta en los esquemas definidos en `lib/core/database/database_tables.dart`:
-
-| Tabla | Propósito de Negocio | Claves e Integridad |
-| :--- | :--- | :--- |
-| `lotes` | Catálogo de lotes o rodeos del establecimiento. | `id` (PK), control de auditoría y `sync_status`. |
-| `animals` | Maestro de bovinos con caravana y último peso registrado. | `id` (PK), `caravana_id` (UNIQUE), `FK (lote_id) -> lotes(id) ON DELETE CASCADE`. |
-| `captures` | Registro individual de cada pesaje biométrico por imagen. | `id` (PK), `peso_estimado`, `confianza`, `imagen_path`, `FKs -> animals, lotes`. |
-| `sync_queue` | Cola de operaciones pendientes de transmisión al backend. | `id` (PK), `entity_type`, `action`, `payload` (JSON), `retry_count`, `status`. |
-
-Para inspeccionar o depurar la base SQLite en el emulador Android podés usar:
-
-```bash
-adb shell "run-as com.example.bovino_vision_mobile ls -la /data/data/com.example.bovino_vision_mobile/databases/"
-```
-
----
-
-## Configuración de Red para Pruebas con backend
-
-Cuando el backend (`bovino_vision_backend`) esté corriendo localmente en el puerto `8000`, la dirección IP de conexión varía según el dispositivo donde corra Flutter:
-
-| Entorno de Ejecución Mobile | URL base para apuntar a la API FastAPI |
+| Dónde corre la app | `API_URL` |
 | :--- | :--- |
-| **Android Emulator** | `http://10.0.2.2:8000` *(alias especial del host en el emulador de Google)* |
-| **Dispositivo Android Físico** | `http://<IP_LOCAL_DE_TU_PC>:8000` *(ambos conectados a la misma red Wi-Fi)* |
-| **Windows Desktop / Web** | `http://localhost:8000` |
+| Emulador Android | `http://10.0.2.2:8000` (por defecto) |
+| Celular físico | `http://<IP_LOCAL_DE_TU_PC>:8000` |
+| Backend publicado con HTTPS | `https://<host>` |
+
+Las compilaciones de **debug y profile** permiten HTTP plano (`usesCleartextTraffic` en sus manifests). Una compilación **release** exige HTTPS, que es el comportamiento por defecto de Android.
+
+En debug, la pantalla de login muestra la URL del servidor configurada para diagnosticar problemas de conexión.
 
 ---
 
-## Tests
-
-El proyecto cuenta con pruebas automatizadas de widgets y smoke tests que validan el correcto montaje del árbol de componentes y la visualización de datos críticos:
-
-```bash
-flutter test
-```
-
-Los tests ejecutan de forma aislada sin requerir un dispositivo físico ni emulador levantado, inicializando el árbol de widgets contra los mocks estáticos del dominio.
-
----
-
-## Análisis de Código y Lint
-
-El proyecto sigue estrictamente las directrices oficiales de estilo de Dart y Flutter:
+## Tests y análisis
 
 ```bash
 flutter analyze
+flutter test
 ```
 
-Las reglas están centralizadas en `analysis_options.yaml` extendiendo `package:flutter_lints/flutter.yaml`. Se requiere código libre de errores, warnings y deprecaciones antes de cada integración.
+Los tests de widgets levantan la app completa contra una API falsa (`test/support/fake_api.dart`: `FakeApi`, `pumpApp`). Verifican pantallas, pedidos enviados (método, ruta, query, cuerpo y cookie), navegación y permisos sin emulador ni backend.
