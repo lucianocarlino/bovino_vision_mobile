@@ -32,6 +32,23 @@ void main() {
     expect(api.sent('GET', '/lotes'), isNotEmpty);
   });
 
+  testWidgets('the birth date picker speaks Spanish', (tester) async {
+    useTallPhone(tester);
+    final api = FakeApi();
+    registerHerd(api);
+    await pumpApp(tester, api, location: '/animales/nuevo');
+
+    await tester.tap(find.text('dd/mm/aaaa'));
+    await tester.pumpAndSettle();
+
+    final dialog = find.byType(DatePickerDialog);
+    expect(dialog, findsOneWidget);
+    expect(find.descendant(of: dialog, matching: find.text('Selecciona una fecha')), findsOneWidget);
+    expect(find.descendant(of: dialog, matching: find.text('Cancelar')), findsOneWidget);
+    expect(find.descendant(of: dialog, matching: find.text('ACEPTAR')), findsOneWidget);
+    expect(find.descendant(of: dialog, matching: find.text('Cancel')), findsNothing);
+  });
+
   testWidgets('Agregar posts the typed data and goes back to the refreshed list', (tester) async {
     useTallPhone(tester);
     final api = FakeApi();
@@ -49,8 +66,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.edit_outlined));
     await tester.pumpAndSettle();
-    await tester.enterText(find.descendant(of: find.byType(Dialog), matching: find.byType(TextField)), '03/15/2024');
-    await tester.tap(find.text('OK'));
+    await tester.enterText(find.descendant(of: find.byType(Dialog), matching: find.byType(TextField)), '15/03/2024');
+    await tester.tap(find.text('ACEPTAR'));
     await tester.pumpAndSettle();
     expect(find.text('15/03/2024'), findsOneWidget);
     await _pick(tester, find.byType(DropdownButton<String?>).last, 'Lote A1');

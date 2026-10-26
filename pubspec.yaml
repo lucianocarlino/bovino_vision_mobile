@@ -10,6 +10,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Spanish texts for Material widgets such as the date picker
+  flutter_localizations:
+    sdk: flutter
 
   # UI e Íconos
   cupertino_icons: ^1.0.8
@@ -31,7 +34,7 @@ dependencies:
   image_picker: ^1.2.4
 
   # Utilidades
-  intl: ^0.19.0
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:

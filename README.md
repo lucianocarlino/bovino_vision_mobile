@@ -52,6 +52,7 @@ lib/
 - **401 en cualquier pedido** (sesión vencida o revocada): se borra la sesión local y se vuelve al login con el aviso "Tu sesión terminó".
 - **Errores:** las respuestas ProblemDetails se muestran con su `detail`; un fallo de red muestra "No se pudo conectar con el servidor. Revisá tu conexión.".
 - **Fotos:** se toman con la cámara del sistema o la galería (`image_picker`) y se reducen a 1600 px y calidad JPEG 85, igual que la web. Se suben en multipart con el content type explícito, porque el backend lo valida. Las fotos guardadas se cargan desde `GET /imagenes/{id}` con la cookie de sesión.
+- **Idioma:** la app fija el locale `es_AR` con `flutter_localizations`, así que los widgets de Material (por ejemplo el selector de fecha) aparecen en español y la fecha se escribe como `dd/mm/aaaa`.
 - **Sin dependencias de UI externas:** Montserrat va como asset (`assets/fonts`, licencia OFL) y el gráfico está dibujado con `CustomPaint`.
 
 ---
