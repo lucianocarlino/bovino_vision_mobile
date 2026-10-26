@@ -45,9 +45,19 @@ class _BovinoVisionAppState extends State<BovinoVisionApp> {
   @override
   void initState() {
     super.initState();
-    _auth = AuthController(client: widget.apiClient, store: widget.sessionStore)..restore();
+    _auth = AuthController(client: widget.apiClient, store: widget.sessionStore)
+      ..addListener(_forgetCachedPhotosOnSignOut)
+      ..restore();
     _connectivity = widget.connectivityService ?? ConnectivityService(reachabilityChecker: widget.apiClient.isReachable);
     _router = buildRouter(_auth);
+  }
+
+  /// Photos are cached by URL, not by session, so the next user must not see the previous one's.
+  void _forgetCachedPhotosOnSignOut() {
+    if (_auth.status != AuthStatus.signedOut) return;
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
   }
 
   @override

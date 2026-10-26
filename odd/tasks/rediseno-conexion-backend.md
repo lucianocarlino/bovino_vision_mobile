@@ -19,11 +19,11 @@ Referencias (solo lectura): `../bovino_vision_frontend` (rama `manu`, `src/index
 
 | ID | Specs | Ruta | Estado | Commit |
 |----|-------|------|--------|--------|
-| T1 | S1 | inline | pendiente | |
-| T2 | S2, S3, S7 | inline | pendiente | |
-| T3 | S4 | delegada (paralela con T4) | pendiente | |
-| T4 | S5, S6 | delegada (paralela con T3) | pendiente | |
-| T5 | S1, S7 | inline (limpieza, Panel/Alertas, tests de cierre) | pendiente | |
+| T1 | S1 | inline | hecho | 4bb92c9 |
+| T2 | S2, S3, S7 | inline | hecho | 4bb92c9 |
+| T3 | S4 | delegada (paralela con T4) | hecho | 29c19bc |
+| T4 | S5, S6 | delegada (paralela con T3) | hecho | b3ef69f |
+| T5 | S1, S7 | inline (limpieza, Panel/Alertas, tests de cierre) | hecho | 98ddeb4 + cierre |
 
 Ruta: T3 y T4 son unidades independientes con superficies disjuntas (`lib/features/capture` vs `lib/features/rodeo` + `lib/features/lotes`), cada una de varios archivos → disparador de escritores en paralelo. T1/T2 son la base que ambas usan y se escriben inline primero.
 
@@ -34,3 +34,8 @@ Entrega: `single-pr` sobre la rama; commits por tarea. Riesgo: T2 toca autentica
 - L1 (25/10/2026): "podemos rediseñar el frontend de la app para que sea más parecido al frontend web mobile de nuestro sistema BovinoVision? ademas, está pendiente conectar el front de la app con nuestro backend. Repos: bovino_vision_backend y bovino_vision_frontend"
 - L2 (25/10/2026): el usuario eligió "Online ahora (Recomendado)" (incluye agregar `http`).
 - L3: hallazgos de exploración — la app no hace ninguna llamada HTTP (la sync espera 700 ms y marca filas); el backend no tiene prefijo `/api`, escucha en 8000 y autentica solo por cookie `bovinovision_sesion` (`HttpOnly; Secure; SameSite=Strict`), sin CSRF ni chequeo de Origin, así que un cliente no navegador reenvía la cookie a mano; ids siempre generados en el servidor; el rol Operario de Campo no tiene `analitica_consultar`.
+- L4: T1+T2 en un solo commit (`4bb92c9`) porque borrar las pantallas viejas era necesario para compilar con el tema nuevo. Base: `lib/core/{api,auth,data,format,network,router,theme,widgets}`, login, pantallas placeholder con los nombres de clase finales, helper `test/support/fake_api.dart` (`FakeApi`, `pumpApp`, `goTo`, `currentPath`). Multipart armado a mano para no sumar `http_parser`. Se quitaron `sqflite`, `path` y `camera` (sin uso). HTTP plano solo en los manifests de debug/profile. Evidencia: `flutter analyze` sin issues, `flutter test` 39/39.
+- L5 (26/10/2026): los dos escritores se cortaron por el límite de uso y se retomaron. T4 entregado: `flutter test test/features/rodeo test/features/lots` 41/41 (repetido por el orquestador). Desvíos del escritor: tras "Agregar" vuelve al listado (como la web); no preselecciona el lote; búsqueda con debounce de 300 ms; el selector de fecha sale en inglés porque falta `flutter_localizations` (decisión pendiente del usuario: es un paquete del SDK pero agrega una entrada al pubspec). T5: Panel, Alertas, gráfico compartido `LineChartView` y README; `AlertCard` pasó de `Row` a `Wrap` porque desbordaba 31 px en 412 px de ancho. `analytics_test.dart` 10/10.
+- L6 (26/10/2026): T3 entregado (`29c19bc`, 35 tests de captura). Chequeo de integración del orquestador: `flutter analyze` sin issues, `flutter test` 125/125, `flutter build apk --debug` OK.
+- L7: verificador independiente (riesgo ítem 2, autenticación) con backend real sobre un Postgres descartable: S2–S7 PASS, S1 PARTIAL (solo revisión estática, sin dispositivo), sin bloqueantes. Prueba e2e con el `ApiClient`/`AuthController`/`CaptureApi` reales: login, cookie, sesión, 401 tras logout, 403 en `/panel` para el Operario, captura completa hasta `procesada` (400 kg) y confirmación. Advertencias: caché de `Image.network` por URL entre usuarios (corregida: se vacía al cerrar sesión, con test); un 401 en una imagen no cierra la sesión; el rol Administrador no tiene permisos de la app móvil; el backend acepta bytes arbitrarios rotulados como imagen.
+- Pendiente de decisión del usuario: `flutter_localizations` (paquete del SDK) para que los selectores de fecha salgan en español.

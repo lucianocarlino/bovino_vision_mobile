@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:bovino_vision_mobile/core/auth/session.dart';
@@ -108,6 +109,19 @@ void main() {
 
     expect(api.sent('DELETE', '/auth/sesion').single.headers['Cookie'], 'bovinovision_sesion=test-token');
     expect(currentPath(tester), '/login');
+  });
+
+  testWidgets('signing out forgets cached photos so the next user cannot see them', (tester) async {
+    final api = FakeApi()..on('DELETE', '/auth/sesion', (_) => const FakeReply(204));
+    await pumpApp(tester, api);
+    final cache = PaintingBinding.instance.imageCache;
+    cache.putIfAbsent('photo-of-previous-user', () => OneFrameImageStreamCompleter(Completer<ImageInfo>().future));
+    expect(cache.containsKey('photo-of-previous-user'), isTrue);
+
+    await tester.tap(find.byTooltip('Cerrar sesión'));
+    await tester.pumpAndSettle();
+
+    expect(cache.containsKey('photo-of-previous-user'), isFalse);
   });
 
   testWidgets('a 401 during use returns to login with the expired-session notice', (tester) async {
