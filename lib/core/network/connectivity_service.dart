@@ -1,124 +1,67 @@
 import 'dart:async';
-import 'dart:io';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 
-/// Servicio para monitorear conectividad y alcanzabilidad de red (Offline-First).
-/// Detecta si hay interfaces de red activas y verifica si el backend/internet
-/// es alcanzable en condiciones rurales o de campo.
+/// Tracks whether the backend can be reached: a network interface must be up and
+/// the reachability check (by default `GET /health`) must succeed.
 class ConnectivityService extends ChangeNotifier {
-  final Connectivity _connectivity;
-  final Future<bool> Function()? _customReachabilityChecker;
+  ConnectivityService({required Future<bool> Function() reachabilityChecker, Connectivity? connectivity})
+      : _checkReachability = reachabilityChecker,
+        _connectivity = connectivity ?? Connectivity() {
+    _start();
+  }
 
+  /// Fixed state without platform plugins, for tests.
+  ConnectivityService.fixed(bool online)
+      : _checkReachability = (() async => online),
+        _connectivity = null,
+        _isOnline = online;
+
+  final Future<bool> Function() _checkReachability;
+  final Connectivity? _connectivity;
   StreamSubscription<List<ConnectivityResult>>? _subscription;
   bool _isOnline = true;
-  bool _isBackendReachable = true;
-  bool? _simulatedOnline;
+  bool _disposed = false;
 
-  // StreamController para emitir cambios de conectividad efectiva
-  final StreamController<bool> _connectivityStreamController =
-      StreamController<bool>.broadcast();
+  bool get isOnline => _isOnline;
 
-  ConnectivityService({
-    Connectivity? connectivity,
-    Future<bool> Function()? reachabilityChecker,
-  })  : _connectivity = connectivity ?? Connectivity(),
-        _customReachabilityChecker = reachabilityChecker {
-    _initConnectivity();
-  }
-
-  /// Indica si el dispositivo está en línea y con acceso efectivo
-  bool get isOnline => _simulatedOnline ?? (_isOnline && _isBackendReachable);
-
-  /// Indica si hay una interfaz de red conectada (WiFi / Celular)
-  bool get hasNetworkInterface => _isOnline;
-
-  /// Indica si el servidor o internet es alcanzable
-  bool get isBackendReachable => _isBackendReachable;
-
-  /// Stream para reaccionar a cambios en tiempo real
-  Stream<bool> get onConnectivityChanged =>
-      _connectivityStreamController.stream;
-
-  /// Permite simular pérdida o recuperación de conexión (útil para pruebas y modo demo)
-  void setSimulatedOnline(bool? simulated) {
-    if (_simulatedOnline != simulated) {
-      _simulatedOnline = simulated;
-      final effectiveOnline = isOnline;
-      _connectivityStreamController.add(effectiveOnline);
-      notifyListeners();
-    }
-  }
-
-  Future<void> _initConnectivity() async {
+  Future<void> _start() async {
+    final connectivity = _connectivity!;
     try {
-      final results = await _connectivity.checkConnectivity();
-      await _updateConnectionStatus(results);
-    } catch (e) {
-      debugPrint('Error al verificar conectividad inicial: $e');
-      _isOnline = true;
-      _isBackendReachable = true;
-      notifyListeners();
+      _subscription = connectivity.onConnectivityChanged.listen(_update);
+      await _update(await connectivity.checkConnectivity());
+    } catch (error) {
+      debugPrint('Connectivity plugin unavailable, assuming online: $error');
     }
-
-    _subscription = _connectivity.onConnectivityChanged.listen((results) {
-      _updateConnectionStatus(results);
-    });
   }
 
-  /// Verifica interfaces activas y luego testea alcanzabilidad de red
-  Future<void> _updateConnectionStatus(List<ConnectivityResult> results) async {
-    final hasConnection = results.isNotEmpty &&
-        !results.every((r) => r == ConnectivityResult.none);
+  Future<void> _update(List<ConnectivityResult> results) async {
+    final hasInterface = results.any((result) => result != ConnectivityResult.none);
+    _setOnline(hasInterface && await _checkReachability());
+  }
 
-    _isOnline = hasConnection;
-
-    if (!hasConnection) {
-      _isBackendReachable = false;
+  /// Checks again now, e.g. when the user retries after a failure.
+  Future<bool> refresh() async {
+    final connectivity = _connectivity;
+    if (connectivity == null) {
+      _setOnline(await _checkReachability());
     } else {
-      _isBackendReachable = await checkBackendReachability();
+      await _update(await connectivity.checkConnectivity());
     }
+    return _isOnline;
+  }
 
-    final effectiveStatus = isOnline;
-    _connectivityStreamController.add(effectiveStatus);
+  void _setOnline(bool online) {
+    if (_disposed || online == _isOnline) return;
+    _isOnline = online;
     notifyListeners();
-  }
-
-  /// Comprueba alcanzabilidad mediante DNS/ping a servidor
-  Future<bool> checkBackendReachability() async {
-    if (_customReachabilityChecker != null) {
-      return await _customReachabilityChecker();
-    }
-
-    if (kIsWeb) return true;
-
-    try {
-      // Intenta resolver host público o backend con timeout corto
-      final lookup = await InternetAddress.lookup('google.com')
-          .timeout(const Duration(seconds: 3));
-      return lookup.isNotEmpty && lookup[0].rawAddress.isNotEmpty;
-    } catch (_) {
-      // Backend o internet inalcanzable (ej: WiFi sin salida o campo sin señal)
-      return false;
-    }
-  }
-
-  /// Fuerza una verificación manual de conectividad
-  Future<bool> checkConnectivity() async {
-    try {
-      final results = await _connectivity.checkConnectivity();
-      await _updateConnectionStatus(results);
-      return isOnline;
-    } catch (e) {
-      debugPrint('Error comprobando conectividad: $e');
-      return isOnline;
-    }
   }
 
   @override
   void dispose() {
+    _disposed = true;
     _subscription?.cancel();
-    _connectivityStreamController.close();
     super.dispose();
   }
 }
